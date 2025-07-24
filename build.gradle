@@ -39,6 +39,9 @@ dependencies {
     // Devtools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
+    // 트랜잭션 어노테이션 사용을 위한 의존성
+    implementation 'org.springframework:spring-tx'
+
     // Test Dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
