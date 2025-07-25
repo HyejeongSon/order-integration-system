@@ -70,7 +70,7 @@ src/
 │   │       │   │   └── ApiResponse.java
 │   │       │   └── OrderIntegrationController.java
 │   │       ├── external/
-│   │       │   ├── ExternalSystemMockController.java
+│   │       │   └── ExternalSystemMockController.java
 │   │       └── config/
 │   │           ├── IntegrationConfig.java
 │   │           └── SwaggerConfig.java
@@ -442,7 +442,6 @@ curl http://localhost:8080/api/orders
     }
     ```
 
-
 **주문 데이터 Export (내부 → 외부 시스템 전송)**
 
 1. 단일 주문 Export
@@ -483,6 +482,13 @@ curl http://localhost:8080/api/orders
     - GET `/api/orders/EXT-ORDER-001`
 3. 상태별 조회
     - GET `/api/orders/status/COMPLETED`
+
+| API 설명                     | 내부 로그 스크린샷                                                                                |
+|----------------------------|-------------------------------------------------------------------------------------------|
+| 주문 요청 (GET `/orders`)      | ![스크린샷1](https://github.com/user-attachments/assets/c1e4496b-fa7f-4fb0-9541-c43335ec5bd9) |
+| 단일 주문 전송 (POST `/orders`)  | ![스크린샷2](https://github.com/user-attachments/assets/551b2b10-6e0e-4df5-9637-24cb9611f3cd) |
+| 복수 주문 전송 (POST `/orders`)  | ![스크린샷3](https://github.com/user-attachments/assets/c87e732e-cec7-47c4-b534-a55a3b3edb4b) |
+| 지연 응답 (GET `/orders/slow`) | ![스크린샷4](https://github.com/user-attachments/assets/4e05da21-7a66-44da-a025-3a3e5ac7d922) |
 
 ## 확장성 고려사항
 
