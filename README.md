@@ -474,7 +474,7 @@ curl http://localhost:8080/api/orders
     }
     ```
 
-`주문 조회`
+**주문 조회**
 
 1. 전체 주문 조회
     - GET `/api/orders`
