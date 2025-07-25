@@ -69,8 +69,11 @@ src/
 │   │       │   │   ├── ExportOrdersRequest.java
 │   │       │   │   └── ApiResponse.java
 │   │       │   └── OrderIntegrationController.java
+│   │       ├── external/
+│   │       │   ├── ExternalSystemMockController.java
 │   │       └── config/
-│   │           └── IntegrationConfig.java
+│   │           ├── IntegrationConfig.java
+│   │           └── SwaggerConfig.java
 │   └── resources/
 │       └── application.yml
 └── test/
@@ -89,8 +92,29 @@ src/
 ## 주요 기능
 
 ### 1. 주문 데이터 연동
-- **Import**: 외부 시스템에서 주문 데이터 가져오기
-- **Export**: 내부 주문 데이터를 외부 시스템으로 전송
+
+- **Import**: 외부 시스템에서 주문 데이터 가져오기(외부 → 내부)
+
+    ```
+    1. Controller.importOrders(endpoint)
+    2. Service.importOrdersFromExternal(endpoint)  
+    3. Client.fetchOrders(endpoint) → 외부 API 호출
+    4. JSON → OrderRequest → Order 변환
+    5. Repository.save(order) → 메모리 저장
+    6. 결과 반환: List<Order>
+    ```
+
+- **Export**: 내부 주문 데이터를 외부 시스템으로 전송(내부 → 외부)
+
+    ```
+    1. Controller.exportOrder(orderId, endpoint)
+    2. Service.exportOrderToExternal(endpoint, orderId)
+    3. Repository.findById(orderId) → 메모리 조회  
+    4. Order → OrderResponse → JSON 변환
+    5. Client.sendOrder(endpoint, order) → 외부 API 전송
+    6. 결과 반환: boolean (성공/실패)
+    ```
+
 - **실시간 연동**: HTTP 기반 즉시 데이터 교환
 
 ### 2. 주문 관리
@@ -292,7 +316,7 @@ GET /api/orders/status/{status}    # 상태별 주문 조회
 {
   "success": true,
   "message": "작업 완료",
-  "data": { /* 실제 데이터 */ },
+  "data": { },
   "timestamp": "2024-01-01T10:00:00"
 }
 ```
@@ -338,6 +362,16 @@ DataIntegrationException (Base)
 - **데이터 형식 오류**: JSON 파싱 실패, 필드 누락
 - **비즈니스 로직 오류**: 주문 ID 중복, 유효성 검증 실패
 
+### 예외 처리 흐름
+
+```
+HttpExternalSystemClient → ExternalSystemException
+    ↓
+OrderIntegrationService → DataIntegrationException  
+    ↓
+GlobalExceptionHandler → HTTP 응답 (400/500/502)
+```
+
 ## 테스트
 
 ### 테스트 구조
@@ -349,35 +383,6 @@ src/test/java/
 │   └── InMemoryOrderRepositoryTest
 └── integration/                   # 통합 테스트
     └── OrderIntegrationControllerTest
-```
-
-### 테스트 실행
-```bash
-# 모든 테스트 실행
-mvn test
-
-# 특정 테스트 클래스 실행
-mvn test -Dtest=OrderIntegrationServiceTest
-
-# 통합 테스트만 실행
-mvn test -Dtest=*IntegrationTest
-```
-
-## 🚀 실행 방법
-
-### 1. 프로젝트 빌드
-```bash
-mvn clean compile
-```
-
-### 2. 애플리케이션 실행
-```bash
-mvn spring-boot:run
-```
-
-### 3. 애플리케이션 접속
-```
-http://localhost:8080
 ```
 
 ## 사용 예시
@@ -401,6 +406,84 @@ curl -X POST http://localhost:8080/api/orders/export/ORDER001 \
 curl http://localhost:8080/api/orders
 ```
 
+## Swagger API 문서
+본 프로젝트는 Swagger UI를 통해 REST API를 테스트할 수 있습니다.
+
+### Swagger 접속 경로
+
+- `http://localhost:8080/swagger-ui/index.html`
+
+### 주요 시나리오
+
+**주문 데이터 Import (외부 시스템 → 내부 저장)**
+
+1. 일반 Import
+
+    ```
+    POST /api/orders/import
+    Request Body:
+    {
+      "endpoint": "http://localhost:8080/external-system/orders"
+    }
+    ```
+
+2. 다양한 외부 시스템 Mock 테스트
+    - 지연 응답: `external-system/orders/slow`
+    - 에러 응답: `external-system/orders/error`
+    - 잘못된 JSON: `external-system/orders/invalid`
+    - 빈 결과: `external-system/orders/empty`
+
+   예시:
+
+    ```
+    POST /api/orders/import
+    {
+      "endpoint": "http://localhost:8080/external-system/orders/slow"
+    }
+    ```
+
+
+**주문 데이터 Export (내부 → 외부 시스템 전송)**
+
+1. 단일 주문 Export
+
+    ```
+    POST /api/orders/export/{orderId}
+    Request Body:
+    {
+      "endpoint": "http://localhost:8080/external-system/orders"
+    }
+    ```
+
+2. 복수 주문 Export
+
+    ```
+    POST /api/orders/export
+    Request Body:
+    {
+      "endpoint": "http://localhost:8080/external-system/orders",
+      "orderIds": ["EXT-ORDER-001", "EXT-ORDER-002"]
+    }
+    ```
+
+3. 부분 실패 시뮬레이션 (Mock)
+
+    ```
+    {
+      "endpoint": "http://localhost:8080/external-system/orders/partial-fail",
+      "orderIds": ["EXT-ORDER-001", "EXT-ORDER-002"]
+    }
+    ```
+
+`주문 조회`
+
+1. 전체 주문 조회
+    - GET `/api/orders`
+2. 주문 ID로 조회
+    - GET `/api/orders/EXT-ORDER-001`
+3. 상태별 조회
+    - GET `/api/orders/status/COMPLETED`
+
 ## 확장성 고려사항
 
 ### 1. 다양한 외부 시스템 지원
@@ -418,7 +501,7 @@ curl http://localhost:8080/api/orders
 ## 참고 자료
 
 - [Spring Boot Documentation](https://spring.io/projects/spring-boot)
-- [RestTemplate Guide](https://spring.io/guides/gs/consuming-rest/)
+- [RestTemplate](https://adjh54.tistory.com/234)
 - [Jackson JSON Processing](https://github.com/FasterXML/jackson)
 
 ---
